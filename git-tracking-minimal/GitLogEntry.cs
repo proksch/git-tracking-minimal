@@ -15,6 +15,7 @@
  */
 
 using System;
+using System.Net.Mail;
 
 namespace git_tracking_minimal
 {
@@ -37,8 +38,10 @@ namespace git_tracking_minimal
             cur = idxEndCommitFrom + 1;
             CommitTo = line.Substring(cur, idxEndCommitTo - cur);
             cur = idxEndCommitTo + 1;
-            User = line.Substring(cur, idxEndUser + 1 - cur); // consider ">"
+            var user = line.Substring(cur, idxEndUser + 1 - cur); // consider ">"
             cur = idxEndUser + 2;
+
+            User = ExtractAddress(user);
 
 
             var timestampRaw = line.Substring(cur, idxEndTimeStamp - cur);
@@ -52,10 +55,20 @@ namespace git_tracking_minimal
 
         public string Msg { get; }
 
-        public string User { get; }
+        public MailAddress User { get; }
 
         public string CommitTo { get; }
 
         public string CommitFrom { get; }
+
+        private static MailAddress ExtractAddress(string user)
+        {
+            var open = user.IndexOf('<');
+            var close = user.IndexOf('>');
+
+            var name = user.Substring(0, open).Trim();
+            var address = user.Substring(open+1, close - open -1).Trim();
+            return new MailAddress(address, name);
+        }
     }
 }
