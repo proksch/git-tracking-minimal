@@ -14,26 +14,19 @@
  * limitations under the License.
  */
 
-using System;
+using LibGit2Sharp;
+using NUnit.Framework;
 
-namespace git_tracking_minimal
+namespace git_tracking_minimal_test.Examples
 {
-    internal class Program
+    internal class ExamplesTest : RepositoryBaseTest
     {
-        private const string Repo1 = @"c:\examples\Repo1\";
-        private const string NoRepo = @"c:\examples\NoRepo\";
-
-        private static void Main(string[] args)
+        [Test]
+        public void SimpleCommit()
         {
-            var tracker = new GitTracker(NoRepo);
-            tracker.Run();
-
-            var tracker2 = new GitTracker(Repo1);
-            tracker2.Run();
-
-            while (!Console.ReadLine().Equals("quit")) { }
-            tracker.Dispose();
-            tracker2.Dispose();
+            Write("b.txt", 1, '2', "3", 0x4);
+            Commands.Stage(Repo, "*");
+            Commit("another file");
         }
     }
 }

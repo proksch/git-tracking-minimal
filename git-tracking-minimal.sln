@@ -25,4 +25,7 @@ Global
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
+	GlobalSection(CodealikeProperties) = postSolution
+		SolutionGuid = ea230c93-37bb-436c-87c0-1535b590b4ce
+	EndGlobalSection
 EndGlobal
