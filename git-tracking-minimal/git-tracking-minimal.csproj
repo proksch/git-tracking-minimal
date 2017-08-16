@@ -48,10 +48,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="GitLogEntry.cs" />
+    <Compile Include="GitTracking\GitLogEntry.cs" />
+    <Compile Include="GitTracking\GitResetMode.cs" />
+    <Compile Include="GitTracking\GitState.cs" />
+    <Compile Include="GitTracking\IChangeSize.cs" />
+    <Compile Include="GitTracking\IGitStateTracker.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="GitTracker.cs" />
+    <Compile Include="GitTracking\GitTracker.cs" />
+    <Compile Include="GitTracking\StaticGitTracker.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

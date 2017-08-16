@@ -14,19 +14,12 @@
  * limitations under the License.
  */
 
-using LibGit2Sharp;
-using NUnit.Framework;
-
-namespace git_tracking_minimal_test.Examples
+namespace git_tracking_minimal.GitTracking
 {
-    internal class ExamplesTest : RepositoryBaseTest
+    public interface IChangeSize
     {
-        [Test]
-        public void SimpleCommit()
-        {
-            Write("b.txt", 1, '2', "3", 0x4);
-            Commands.Stage(Repo, "*");
-            Commit("another file");
-        }
+        int LinesAdded { get; }
+        int LinesRemoved { get; }
+        int Churn { get; }
     }
 }

@@ -49,10 +49,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Examples\ExamplesTest.cs" />
-    <Compile Include="Examples\RepositoryBaseTest.cs" />
-    <Compile Include="Examples\StartUpTest.cs" />
-    <Compile Include="GitLogEntryTest.cs" />
+    <Compile Include="GitTracking\GitTrackerTest.cs" />
+    <Compile Include="GitTracking\StaticGitTrackerTestSuite\ExamplesTest.cs" />
+    <Compile Include="GitTracking\FolderBasedTest.cs" />
+    <Compile Include="GitTracking\GitLogEntryTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

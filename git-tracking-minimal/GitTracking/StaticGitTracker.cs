@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright 2017 Sebastian Proksch
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,186 +19,41 @@ using System.Collections.Generic;
 using System.IO;
 using LibGit2Sharp;
 
-namespace git_tracking_minimal
+namespace git_tracking_minimal.GitTracking
 {
-    public interface IChangeSize
+    public class StaticGitTracker : IDisposable
     {
-        int LinesAdded { get; }
-        int LinesRemoved { get; }
-        int Churn { get; }
-    }
-
-    // not yet sure how this will be tracked.. maybe this is part of the reflog?
-    public enum GitResetMode
-    {
-        Unknown,
-        Soft,
-        Mixed,
-        Hard
-    }
-
-    public class GitState
-    {
-        public bool IsGitEnabled { get; set; }
-        public string TrackedFolder { get; set; }
-        public string GitFolder { get; set; }
-
-        public string CurrentCommit { get; set; }
-        public string CurrentBranch { get; set; }
-
-        public Dictionary<string, IChangeSize> WorkingDir { get; set; }
-        public Dictionary<string, IChangeSize> Index { get; set; }
-        public Dictionary<string, string> Refs { get; set; } // path, hash (both in file system and packed-refs file)
-    }
-
-    public interface IGitActionTracker { }
-
-    public interface IGitStateTracker
-    {
-        GitState State { get; }
-
-        void Run();
-
-        event Action<string, IChangeSize> FileChange;
-        event Action ConfigChange;
-        event Action GitEnabled;
-        event Action HeadChange;
-        event Action IndexChange;
-        event Action RefsChange;
-
-        // index
-
-        event Action<string, bool> FileAdd; // file, working dir dirty?
-        event Action<string, bool> FileReset; // file, still in index?
-        event Action<string, string, GitResetMode> BranchReset; // name, toHash, 
-
-
-        event Action<string, string, string, bool> Commit; // parent, hash, message, amend?
-
-        // tagging
-
-        event Action<string, string> TagAdded; // name, hash
-        event Action<string> TagRemoved; // name
-
-        // remotes
-
-        event Action<string> RemoteAdded;
-        event Action<string> RemoteDeleted;
-        event Action<string> Fetch;
-        event Action<string> Pull;
-        event Action<string> Push;
-        event Action<string> Merge;
-        event Action<string> Rebase;
-
-        // branching
-
-        event Action<string, string> BranchAdded; // name, hash 
-        event Action<string> BranchRemove; // name
-        event Action<string, string, string> BranchRename; // nameOld, nameNew, hash
-        event Action<string, string> BranchCheckout; // name, hash
-    }
-
-    public class GitTracker : IDisposable
-    {
-        private readonly string _dirLogs;
-        private readonly string _dirRefs;
-        private readonly string _dirRepo;
-
+        private readonly string _dirGit;
+        private readonly string _dirGitLogs;
+        private readonly string _dirGitRefs;
         private readonly string _dirSln;
 
+        private readonly Repository _repo;
 
         private readonly List<string> _seenHeadLines = new List<string>();
         private readonly object _sync = new object();
-        private Repository _repo;
-        private FileSystemWatcher _watcherHead;
-        private FileSystemWatcher _watcherObj;
-        private FileSystemWatcher _watcherRefs;
-        private FileSystemWatcher _watcherRepo;
+        private readonly FileSystemWatcher _watcherHead;
+        private readonly FileSystemWatcher _watcherRefs;
+        private readonly FileSystemWatcher _watcherRepoContent;
         private FileSystemWatcher _watcherWork;
-
-        public GitTracker(string dirSln)
-        {
-            State = new GitState
-            {
-                TrackedFolder = dirSln
-            };
-            var gitDir = Path.Combine(dirSln, ".git");
-            if (!Directory.Exists(gitDir))
-            {
-                return;
-            }
-
-            State.IsGitEnabled = true;
-            State.GitFolder = gitDir;
-
-            var fileIndex = Path.Combine(gitDir, "index");
-            if (!File.Exists(fileIndex))
-            {
-                File.Create(fileIndex).Dispose();
-            }
-
-            var dirLogs = Path.Combine(gitDir, "logs");
-            if (!Directory.Exists(dirLogs))
-            {
-                Directory.CreateDirectory(dirLogs);
-            }
-            var fileHead = Path.Combine(gitDir, "logs", "HEAD");
-            if (!File.Exists(fileHead))
-            {
-                File.Create(fileHead).Dispose();
-            }
-
-            var dirRefs = Path.Combine(gitDir, "refs");
-            if (!Directory.Exists(dirRefs))
-            {
-                Directory.CreateDirectory(dirRefs);
-            }
-
-            _dirLogs = dirLogs;
-            _dirRefs = dirRefs;
-            _dirRepo = gitDir;
-            _dirSln = dirSln;
-        }
-
-        public GitState State { get; }
 
         public string TimeStamp => $"{DateTime.Now:HH:mm:ss.fff}";
 
-        public void Dispose()
+
+        public StaticGitTracker(GitState state)
         {
-            _watcherWork?.Dispose();
-            _watcherRepo?.Dispose();
-            _watcherObj?.Dispose();
-            _watcherRefs?.Dispose();
-            _watcherHead?.Dispose();
-            _repo?.Dispose();
-        }
+            _dirSln = state.TrackedFolder;
+            _dirGit = state.GitFolder;
+            _dirGitLogs = Path.Combine(_dirGit, "logs");
+            _dirGitRefs = Path.Combine(_dirGit, "refs");
 
-        public event Action GitEnabled;
+            CreateGitStructureIfNotExisting();
 
-        private static void Log(string msg)
-        {
-            Console.WriteLine(msg);
-        }
-
-        public void Run()
-        {
-            if (State.IsGitEnabled)
-            {
-                Instrument();
-            }
-        }
-
-        public void Instrument()
-            {
-                _repo = new Repository(_dirRepo);
-            foreach (var tag in _repo.Tags)
-            {
-                // ...
-            }
+            _repo = new Repository(_dirGit);
 
             ReadNewHeadLines();
 
+            /*
             _watcherWork = new FileSystemWatcher
             {
                 Path = _dirSln,
@@ -210,51 +65,89 @@ namespace git_tracking_minimal
             _watcherWork.Changed += SlnHandler;
             _watcherWork.Deleted += SlnHandler;
             _watcherWork.Renamed += SlnHandler;
-            _watcherWork.Error += OnError;
+            _watcherWork.Error += (o, ea) => { OnError($"_watcherWork -- {ea.GetException()}"); };
+            */
 
-            _watcherRepo = new FileSystemWatcher
+            /*
+            _watcherRepoContent = new FileSystemWatcher
             {
-                Path = _dirRepo,
+                Path = _dirGit,
                 Filter = "*",
                 EnableRaisingEvents = true,
                 IncludeSubdirectories = true
             };
-            _watcherRepo.Created += GeneralHandler;
-            _watcherRepo.Changed += GeneralHandler;
-            _watcherRepo.Deleted += GeneralHandler;
-            _watcherRepo.Renamed += GeneralHandler;
-            _watcherRepo.Error += OnError;
+            _watcherRepoContent.Created += GeneralHandler;
+            _watcherRepoContent.Changed += GeneralHandler;
+            _watcherRepoContent.Deleted += GeneralHandler;
+            _watcherRepoContent.Renamed += GeneralHandler;
+            _watcherRepoContent.Error += (o, ea) => { OnError($"_watcherRepoContent -- {ea.GetException()}"); };
+            */
 
             _watcherHead = new FileSystemWatcher
             {
-                Path = _dirLogs,
+                Path = _dirGitLogs,
                 Filter = "HEAD",
                 EnableRaisingEvents = true,
                 IncludeSubdirectories = false
             };
             _watcherHead.Changed += OnHeadChange;
-            _watcherHead.Error += OnError;
+            /* _watcherHead.Error += (o, ea) =>
+             {
+                 OnError($"_watcherHead -- {ea.GetException()}");
+             };*/
 
             _watcherRefs = new FileSystemWatcher
             {
-                Path = _dirRefs,
+                Path = _dirGitRefs,
                 Filter = "*",
-                EnableRaisingEvents = true,
-                IncludeSubdirectories = false
-            };
-            _watcherRefs.Changed += OnRefsChange;
-            _watcherRefs.Error += OnError;
-
-            _watcherObj = new FileSystemWatcher
-            {
-                Path = _dirRepo,
-                Filter = "index",
                 EnableRaisingEvents = true,
                 IncludeSubdirectories = true
             };
-            _watcherObj.Changed += OnIndexChange;
-            _watcherObj.Error += OnError;
+            _watcherRefs.Changed += OnRefsChange;
+            //_watcherRefs.Error += (o, ea) => { OnError($"_watcherRefs -- {ea.GetException()}"); };
         }
+
+        public void Dispose()
+        {
+            lock (_sync)
+            {
+                _watcherWork?.Dispose();
+                _watcherRepoContent?.Dispose();
+                _watcherRefs?.Dispose();
+                _watcherHead?.Dispose();
+                _repo?.Dispose();
+            }
+        }
+
+        private void CreateGitStructureIfNotExisting()
+        {
+            var fileIndex = Path.Combine(_dirGit, "index");
+            if (!File.Exists(fileIndex))
+            {
+                File.Create(fileIndex).Dispose();
+            }
+
+            if (!Directory.Exists(_dirGitLogs))
+            {
+                Directory.CreateDirectory(_dirGitLogs);
+            }
+            var fileHead = Path.Combine(_dirGitLogs, "HEAD");
+            if (!File.Exists(fileHead))
+            {
+                File.Create(fileHead).Dispose();
+            }
+
+            if (!Directory.Exists(_dirGitRefs))
+            {
+                Directory.CreateDirectory(_dirGitRefs);
+            }
+        }
+
+        private static void Log(string msg)
+        {
+            Console.WriteLine(msg);
+        }
+
 
         private void SlnHandler(object sender, FileSystemEventArgs args)
         {
@@ -264,7 +157,7 @@ namespace git_tracking_minimal
                 {
                     return;
                 }
-                if (args.FullPath.StartsWith(_dirRepo))
+                if (args.FullPath.StartsWith(_dirGit))
                 {
                     return;
                 }
@@ -358,26 +251,29 @@ namespace git_tracking_minimal
 
         private IList<GitLogEntry> ReadNewHeadLines()
         {
-            var pathHead = Path.Combine(_dirLogs, "HEAD");
-
-            var newLines = new List<GitLogEntry>();
-            foreach (var line in File.ReadAllLines(pathHead))
+            lock (_sync)
             {
-                if (!_seenHeadLines.Contains(line))
+                var pathHead = Path.Combine(_dirGitLogs, "HEAD");
+
+                var newLines = new List<GitLogEntry>();
+                foreach (var line in File.ReadAllLines(pathHead))
                 {
-                    _seenHeadLines.Add(line);
-                    var e = new GitLogEntry(line);
-                    newLines.Add(e);
+                    if (!_seenHeadLines.Contains(line))
+                    {
+                        _seenHeadLines.Add(line);
+                        var e = new GitLogEntry(line);
+                        newLines.Add(e);
+                    }
                 }
+                return newLines;
             }
-            return newLines;
         }
 
-        private void OnError(object sender, ErrorEventArgs e)
+        private void OnError(string message)
         {
             lock (_sync)
             {
-                Log($"[{TimeStamp}] error!");
+                Log($"[{TimeStamp}] error: {message}");
             }
         }
 

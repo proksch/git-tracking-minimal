@@ -17,7 +17,7 @@
 using System;
 using System.Net.Mail;
 
-namespace git_tracking_minimal
+namespace git_tracking_minimal.GitTracking
 {
     public class GitLogEntry
     {
@@ -67,7 +67,7 @@ namespace git_tracking_minimal
             var close = user.IndexOf('>');
 
             var name = user.Substring(0, open).Trim();
-            var address = user.Substring(open+1, close - open -1).Trim();
+            var address = user.Substring(open + 1, close - open - 1).Trim();
             return new MailAddress(address, name);
         }
     }
