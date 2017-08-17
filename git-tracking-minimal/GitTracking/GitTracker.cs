@@ -25,13 +25,10 @@ namespace git_tracking_minimal.GitTracking
         private readonly string _dirSln;
 
         private StaticGitTracker _cur;
-        private string _dirGit;
 
         private FileSystemWatcher _watcherRepo;
 
         public GitState State { get; }
-
-        public bool IsGitEnabled => false;
 
         public GitTracker(string dirSln)
         {
@@ -41,6 +38,11 @@ namespace git_tracking_minimal.GitTracking
             {
                 throw new ArgumentException("cannot track files");
             }
+            if (!Directory.Exists(_dirSln))
+            {
+                throw new ArgumentException("tracked directory does not exist");
+            }
+
             State = new GitState
             {
                 TrackedFolder = _dirSln
@@ -58,13 +60,18 @@ namespace git_tracking_minimal.GitTracking
         public void StartTracking()
         {
             // TODO also watch in parents
-            _dirGit = Path.Combine(_dirSln, ".git");
-            if (Directory.Exists(_dirGit))
+            var dir = _dirSln;
+            while (dir != null)
             {
-                Enable(_dirGit);
+                var git = Path.Combine(dir, ".git");
+                if (Directory.Exists(git))
+                {
+                    Enable(git);
+                    break;
+                }
+                dir = Path.GetDirectoryName(dir);
             }
 
-            // TODO also watch in parents
             _watcherRepo = new FileSystemWatcher
             {
                 Path = _dirSln,
@@ -73,15 +80,11 @@ namespace git_tracking_minimal.GitTracking
             };
             _watcherRepo.Created += (target, args) =>
             {
-                _dirGit = args.FullPath;
                 // creation of repo takes longer then creation of base dir
                 Thread.Sleep(500);
                 Enable(args.FullPath);
             };
-            _watcherRepo.Deleted += (target, args) =>
-            {
-                  Disable();
-            };
+            _watcherRepo.Deleted += (target, args) => { Disable(); };
         }
 
         private void Enable(string dirGit)

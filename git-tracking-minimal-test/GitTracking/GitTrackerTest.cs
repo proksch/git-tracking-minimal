@@ -58,6 +58,15 @@ namespace git_tracking_minimal_test.GitTracking
         }
 
         [Test]
+        [ExpectedException(typeof(ArgumentException))]
+        public void CannotBeStartedWithNonExistingFolders()
+        {
+            var dir = Path.Combine(DirTestRoot, "SomeDir");
+            // ReSharper disable once ObjectCreationAsStatement
+            new GitTracker(dir);
+        }
+
+        [Test]
         public void StartedOnEmptyRepository()
         {
             var dir = Path.Combine(DirTestRoot, "SomeDir");
@@ -94,7 +103,14 @@ namespace git_tracking_minimal_test.GitTracking
         [Test]
         public void GitFolderLivesInParentFolder()
         {
-            Assert.Fail();
+            var dir = Path.Combine(DirTestRoot, "a", "b", "c");
+            var git = Path.Combine(DirTestRoot, ".git");
+            Directory.CreateDirectory(dir);
+            Repository.Init(DirTestRoot);
+
+            _sut = new GitTracker(dir);
+            _sut.StartTracking();
+            AssertInit(dir, git);
         }
 
         [Test]
@@ -139,7 +155,7 @@ namespace git_tracking_minimal_test.GitTracking
             Assert.IsFalse(hasNotification);
             DeleteDirectory(git);
 
-            Thread.Sleep(500);
+            Thread.Sleep(250);
             Assert.IsTrue(hasNotification);
             AssertInit(dir, null);
         }
@@ -149,21 +165,25 @@ namespace git_tracking_minimal_test.GitTracking
         {
             var dir = Path.Combine(DirTestRoot, "SomeDir");
             var git = Path.Combine(dir, ".git");
-            Directory.CreateDirectory(git);
+            Repository.Init(dir);
 
-            var sut = new GitTracker(dir);
-            sut.StartTracking();
-            Assert.IsTrue(sut.State.IsGitEnabled);
-            Directory.Delete(git, true);
-            Assert.IsFalse(sut.State.IsGitEnabled);
-            Directory.CreateDirectory(git);
+            _sut = new GitTracker(dir);
+            _sut.StartTracking();
+            AssertInit(dir, git);
 
-            Assert.IsTrue(sut.State.IsGitEnabled);
-            Assert.AreEqual(dir, sut.State.TrackedFolder);
-            Assert.AreEqual(git, sut.State.GitFolder);
+            DeleteDirectory(git);
+
+            Thread.Sleep(250);
+            AssertInit(dir, null);
+
+            Repository.Init(dir);
+
+            Thread.Sleep(1000);
+            AssertInit(dir, git);
         }
 
         [Test]
+        [Ignore("Not supported. Monitoring the hierarchy is possible, but too expensive.")]
         public void RemovalAndReaddition_Hierarchy()
         {
             Assert.Fail();
